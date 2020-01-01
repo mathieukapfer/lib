@@ -1,0 +1,38 @@
+Init
+{
+  Event1 [ toto == 1]  NewState1  { action();}
+  Event2 [ toto == 2]  NewState2
+           { action2(); action22(); }
+  Event3 [ toto == 3]  NewState3
+         {
+                action(); action1();
+         }
+
+}
+
+        Running {}
+        {
+        }
+}
+
+// State
+Idle
+{
+    // Trans
+    Run
+
+      // Guard condition
+      [ctxt.isProcessorAvailable() == true &&
+       ctxt.getConnection().isOpen() == true]
+
+        // Next State
+        Running
+        {
+            StopTimer("Idle");
+            DoWork();
+        }
+
+    Run        nil            {RejectRequest();}
+}
+
+// Actions
