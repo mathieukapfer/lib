@@ -1,0 +1,152 @@
+{
+    "color": [
+        {
+            "color": "#666666", 
+            "toState": "failure::StateF"
+        }, 
+        {
+            "color": "#aa2222", 
+            "toState": "failure::StateE"
+        }, 
+        {
+            "color": "#2222aa", 
+            "fromState": "standby::StateA", 
+            "toState": "standby::StateB"
+        }, 
+        {
+            "color": "#2222aa", 
+            "fromState": "standby::StateB", 
+            "toState": "standby::StateB_checkWakeup"
+        }, 
+        {
+            "color": "#2222aa", 
+            "fromState": "standby::StateB_checkWakeup", 
+            "toState": "standby::StateBplus"
+        }, 
+        {
+            "color": "#2222aa", 
+            "fromState": "standby::StateBplus", 
+            "toState": "standby::StateBplus_wakeup"
+        }, 
+        {
+            "color": "#2222aa", 
+            "fromState": "standby::StateBplus_wakeup", 
+            "toState": "standby::StateBplus"
+        }, 
+        {
+            "color": "#2222aa", 
+            "fromState": "standby::StateBplus", 
+            "toState": "charge::StateCD"
+        }, 
+        {
+            "color": "#22aa22", 
+            "fromState": "charge::StateCD", 
+            "toState": "charge::WaitingStop"
+        }, 
+        {
+            "color": "#22aa22", 
+            "fromState": "charge::WaitingStop", 
+            "toState": "charge::OpenContactor"
+        }, 
+        {
+            "color": "#22aa22", 
+            "fromState": "charge::OpenContactor", 
+            "toState": "standby::StateBplus"
+        }, 
+        {
+            "color": "#22aa22", 
+            "fromState": "standby::StateBplus", 
+            "toState": "standby::StateB"
+        }, 
+        {
+            "color": "#22aa22", 
+            "fromState": "standby::StateB", 
+            "toState": "standby::StateA"
+        }, 
+        {
+            "color": "#4444aa", 
+            "fromState": "standby::StateA", 
+            "toState": "standby::StateCDminus"
+        }, 
+        {
+            "color": "#4444aa", 
+            "fromState": "standby::StateCDminus", 
+            "toState": "standby::StateB_checkWakeup"
+        }
+    ], 
+    "remove": [], 
+    "weight": [
+        {
+            "weight": 3, 
+            "fromState": "standby::StateA", 
+            "toState": "standby::StateB"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateB", 
+            "toState": "standby::StateB_checkWakeup"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateB_checkWakeup", 
+            "toState": "standby::StateBplus"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateBplus", 
+            "toState": "standby::StateBplus_wakeup"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateBplus_wakeup", 
+            "toState": "standby::StateBplus"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateBplus", 
+            "toState": "charge::StateCD"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "charge::StateCD", 
+            "toState": "charge::WaitingStop"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "charge::WaitingStop", 
+            "toState": "charge::OpenContactor"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "charge::OpenContactor", 
+            "toState": "standby::StateBplus"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateBplus", 
+            "toState": "standby::StateB"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateB", 
+            "toState": "standby::StateA"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateA", 
+            "toState": "standby::StateCDminus"
+        }, 
+        {
+            "weight": 3, 
+            "fromState": "standby::StateCDminus", 
+            "toState": "standby::StateB_checkWakeup"
+        },
+        {
+			"weight": 3,
+			"toState": "failure::StateE"
+        }
+	],
+	"defaults": {
+		"standby": "StateBplus"
+	}
+}

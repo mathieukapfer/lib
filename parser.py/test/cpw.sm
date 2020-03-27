@@ -1,0 +1,359 @@
+%start standby::StateA
+%class CpwStateMachine
+%header CpwStateMachine.h
+
+
+%map standby
+%%
+StateA
+Entry {
+	reset();
+	start_ev_eval();
+	refreshInput();
+	eval_ev();
+	eval_cable();
+}
+{
+	Eval [ ctxt.is_contactor_opened() == false ]        jump( charge::Error_CT ) { set_stop_cause(StopCause_ContactorNotOpened); }
+
+	Eval[ctxt.m_model.ev == ev_m3s &&
+		 ctxt.m_model.cable == cable_plugged]			StateCDminus { set_error(No_Error);
+		 															   set_S2_blocked(false);
+		 															   set_charge_stop_cause( StopCause_NotInitialized );
+		 															   set_stop_cause( StopCause_NotInitialized );
+																	   set_wakeup_phase2_done(false);
+																	   set_wakeup_phase1_done(false); }
+
+	Eval[ctxt.is_m3_ev() &&
+		 ctxt.is_cable_plugged()]						StateB { set_error(No_Error);
+		 														 set_S2_blocked(false);
+		 														 set_charge_stop_cause( StopCause_NotInitialized );
+		 														 set_stop_cause( StopCause_NotInitialized );
+																 set_wakeup_phase2_done(false); 
+																 set_wakeup_phase1_done(false); }
+}
+
+StateB
+Entry {
+	start_ev_eval();
+	refreshInput();
+	eval_ev();
+	eval_cable();
+}
+{
+	Eval[ctxt.is_no_ev()]									StateA {}
+
+	Eval[ctxt.is_sm3_ev() &&
+		 ctxt.is_cable_plugged()]							StateCDminus {}
+
+	Eval[ctxt.is_evse_ready()]								StateB_checkWakeup {}
+
+  	Eval[ctxt.is_ev_invalid_behavior()]						jump(failure::StateError) { set_stop_cause(StopCause_InvalidEVBehavior); }
+
+	Eval[ctxt.is_cable_unplugged()]						jump(failure::StateError) { set_stop_cause(StopCause_EVWithoutCable); }
+}
+
+StateCDminus
+Entry {
+	start_ev_eval();
+	refreshInput();
+	eval_ev();
+	eval_cable();
+}
+{
+	Eval[ctxt.is_no_ev()]								StateA {}
+
+	Eval[ctxt.is_m3_ev() &&
+		 ctxt.is_cable_plugged()]						StateB {}
+
+	Eval[ctxt.is_evse_ready()]							StateB_checkWakeup { init_sm3_end_of_charge_check(); }
+
+	Eval[ctxt.is_cable_unplugged()]					 	jump(failure::StateError) { set_stop_cause(StopCause_EVWithoutCable); }
+}
+
+StateB_checkWakeup
+{
+	Eval[ctxt.m_cfg->wakeupB_duration > 0 &&
+		 ctxt.is_m3_ev() &&
+		 !ctxt.is_wakeup_phase1_done()]						StateB_wakeup {}
+
+	Eval												StateBplus {}
+}
+
+StateB_wakeup
+Entry {
+  	// avoid to refresh ev type during wakeup
+  	stop_ev_eval();
+	StartWakeupTimerForP1();
+}
+Exit {
+	StopTimer(TIMER_ID_WAKEUPB);
+  	start_ev_eval();
+}
+{
+	TimerEvent(timerId: TimerId)  [timerId == TIMER_ID_WAKEUPB] 				StateBplus { set_wakeup_phase1_done(true); }
+
+  	// Keep in wakeup state to avoid
+  	// - ev_type computation and
+  	// - is_ev_invalidstate() from transiant state from -12V to +12V
+  	Eval nil {}
+}
+
+StateBplus
+Entry {
+  	start_ev_eval();
+  	StartWakeupTimerForP2();
+	start_modulation( );
+}
+Exit {
+	StopTimer( TIMER_ID_WAKEUPBP_WAITEV );
+	set_synchronised( true );
+}
+{
+  
+	// (in order to avoid to restart a charge after end of charge commanded by cpw)
+	Eval[ !ctxt.isSynchronised() && ctxt.is_evse_ready( ) ] 	nil {}
+
+	Eval[ !ctxt.is_evse_ready( ) ]		StateB { stop_modulation(); }
+
+	// to go back to state A throw B
+	Eval[ ctxt.is_no_ev( ) ]			StateB { stop_modulation(); }
+
+	Eval[ ctxt.is_ev_ready( ) ]			jump(charge::StateCD) {  close_contactor(); }
+
+  	TimerEvent(timerId: TimerId)  [timerId == TIMER_ID_WAKEUPBP_WAITEV &&
+	  							   !ctxt.is_wakeup_phase2_done()]	 	 StateBplus_wakeup {}
+
+	Eval[ctxt.is_cable_unplugged()]								jump(failure::StateError) { set_stop_cause(StopCause_EVWithoutCable); }
+}
+
+StateBplus_wakeup
+Entry {
+	//StartTimer(TIMER_ID_WAKEUPBP);
+	// Start process for second wake up phase (P3 & P4)
+	enable_wakeup_Bp();
+  	// avoid to refresh ev type during wakeup
+  	stop_ev_eval();
+}
+Exit {
+	StopTimer(TIMER_ID_WAKEUPBP_FIRST_ID);
+	StopTimer(TIMER_ID_WAKEUPBP_SECOND_ID);
+  	// restore ev type evaluation
+  	start_ev_eval();
+}
+{
+
+	Eval[!ctxt.is_evse_ready()]									StateB { stop_modulation(); }
+
+	Eval[ctxt.isEndProcedureSecondWakeUp == true]				StateBplus { set_wakeup_phase2_done(true); }
+
+  	// Keep in wakeup state to avoid
+  	// - ev_type computation and
+  	// - is_ev_invalidstate() from transiant state from -12V to +12V
+  	Eval nil { }
+}
+
+Default
+{
+	Eval[ctxt.is_ev_shortcut()]							jump(failure::StateE) { set_stop_cause(StopCause_ShortCut); }
+
+	Eval[!ctxt.is_evse_available()]						jump(failure::StateF) { set_stop_cause(StopCause_EvseNotAvailable); }
+
+	Eval[ctxt.is_cable_invalidstate()]					jump(failure::StateError) { set_stop_cause(StopCause_InvalidCableState); }
+
+	Eval[ctxt.is_cable_shortcut()]						jump(failure::StateError) { set_stop_cause(StopCause_ShortcutCableState); }
+
+	Eval[ctxt.is_ev_invalidstate()]						jump(failure::StateError) { set_stop_cause(StopCause_InvalidEVState); }
+
+	Eval[ctxt.is_sm3_forbidden()]						jump(failure::StateError) { set_stop_cause(StopCause_SimplifiedMode3NotAllowed); }
+
+	Eval[ctxt.is_vr_forbidden()]						jump(failure::StateError) { set_stop_cause(StopCause_VentillationNotAllowed); }
+
+  // last chance before exception !
+	TimerEvent(timerId: TimerId) nil { /* log("timer % not handler",timerId); */ }
+
+	Eval												nil { eval_ev(); eval_cable();}
+}
+%%
+
+
+%map charge
+%%
+StateCD
+Entry {
+	StartTimer(TIMER_ID_WAIT_CT_CLOSING);
+}
+Exit {
+	StopTimer(TIMER_ID_WAIT_CT_CLOSING);
+}
+{
+	// Check contactor close
+
+	TimerEvent(timerId: TimerId)  [timerId == TIMER_ID_WAIT_CT_CLOSING &&
+					                 ctxt.is_contactor_closed() == false]
+														
+														OpenContactor { set_error(Contactor);
+																		 		set_charge_stop_cause(StopCause_ContactorNotClosed); }
+	
+	//Nominal case
+	
+	Eval[ctxt.is_ev_ask_to_stop()]						OpenContactor { set_charge_stop_cause(StopCause_StopByEV); }
+
+	Eval[!ctxt.is_evse_ready()]							WaitingStop { stop_modulation(); set_charge_stop_cause(StopCause_StopByMainStateMachine); }
+
+	Eval[ctxt.is_ev_sm3_end_of_charge()]				OpenContactor { set_charge_stop_cause(StopCause_SimplifiedMode3_EndOfCharge); }
+}
+
+WaitingStop
+Entry {
+	StartTimer(TIMER_ID_WAIT_S2_OPEN);
+}
+Exit {
+  StopTimer(TIMER_ID_WAIT_S2_OPEN);
+}
+{
+	Eval[ctxt.is_ev_ready_to_stop() || ctxt.is_sm3_ev()]					OpenContactor { }
+
+	TimerEvent(timerId: TimerId)  [ timerId == TIMER_ID_WAIT_S2_OPEN ] 		OpenContactor { set_S2_blocked(true); }
+}
+
+OpenContactor
+Entry {
+	open_contactor();
+	StartTimer(TIMER_ID_WAIT_CT_OPENING);
+}
+Exit {
+	StopTimer(TIMER_ID_WAIT_CT_OPENING);
+}
+{
+	// Check contactor open
+	TimerEvent(timerId: TimerId)  [timerId == TIMER_ID_WAIT_CT_OPENING &&
+									ctxt.is_contactor_opened() == false]
+															Error_CT { set_charge_stop_cause(StopCause_ContactorNotOpened); }
+		 																				// Others actions to be done when contactor didn't respond ?
+	// Wait contactor openning
+	Eval[ !ctxt.is_contactor_opened() ] 				nil 	{ }
+
+	// Error cases
+	Eval[!ctxt.is_evse_available()]						jump(failure::StateF) { set_charge_stop_cause(StopCause_EvseNotAvailable); }
+
+	Eval[ctxt.is_ev_shortcut()]							jump(failure::StateE) { set_charge_stop_cause(StopCause_ShortCut); }
+
+	Eval[ctxt.m_model.error != No_Error]				jump(failure::StateError) { }
+
+	Eval[ ctxt.is_contactor_opened() &&
+		 ctxt.is_m3_ev() &&
+		 ctxt.is_S2_blocked()]							jump(failure::StateError) { set_stop_cause(StopCause_EvNotResponding);}
+
+	// Nominal case
+	Eval[ctxt.is_contactor_opened()]					jump(standby::StateBplus) {}
+
+	// To do not go to default state
+	Eval nil { }
+}
+
+Error_CT //deadLock cause CT stay close
+{
+	TimerEvent(timerId: TimerId) nil { }
+	Eval nil{ }
+}
+
+Default
+{
+	// Error cases
+
+	// Check VR
+	Eval[!ctxt.eval_vr()]								OpenContactor { set_error(VR);
+																		set_charge_stop_cause(StopCause_VentillationNotAllowed); }
+
+	Eval[ctxt.is_cable_disconnected()]					OpenContactor { set_error(Cable);
+            															set_charge_stop_cause(StopCause_CableDisconnected); }									
+
+	Eval[ctxt.is_ev_disconnected()]						OpenContactor { set_error(Vehicle);
+																		set_charge_stop_cause(StopCause_EvDisconnected); }
+
+	Eval[ctxt.is_ev_invalidstate()]						OpenContactor { set_error(Vehicle);
+        																set_charge_stop_cause(StopCause_InvalidEVState); }
+
+	Eval[ctxt.is_cable_invalidstate()]					OpenContactor { set_error(Cable);
+																		set_charge_stop_cause(StopCause_InvalidCableState); }
+
+	Eval[ctxt.is_cable_shortcut()]						OpenContactor { set_error(Cable);
+																		set_charge_stop_cause(StopCause_ShortcutCableState); }
+
+	Eval[ctxt.is_overcurrent()]							OpenContactor { set_error(OverCurrent);
+																		set_charge_stop_cause(StopCause_OverCurrent); }
+
+	Eval[ctxt.is_wrong_phase_usage()]					OpenContactor { set_error(Phases);
+																		set_charge_stop_cause(StopCause_WrongPhaseUsage); }
+
+	Eval[ctxt.is_cable_unplugged()]					OpenContactor { set_error(Cable);
+																		set_charge_stop_cause(StopCause_EVWithoutCable); }
+																		
+	Eval[ctxt.is_ev_shortcut()]							OpenContactor { set_charge_stop_cause(StopCause_ShortCut); }
+
+	Eval[!ctxt.is_evse_available()]						OpenContactor { set_charge_stop_cause(StopCause_EvseNotAvailable); }
+
+  	// last chance before exception !
+  	TimerEvent(timerId: TimerId) 						nil{}
+
+	Eval												nil { eval_cable(); 
+															  // To update cycle rate depending on IMax setpoint
+															  update_modulation(); }
+}
+%%
+
+%map failure
+%%
+StateError
+Entry {
+	start_ev_eval();
+	eval_ev();
+	eval_cable();
+	stop_modulation();
+}
+{
+	Eval[!ctxt.is_evse_available()]						StateF {}
+
+	Eval[ctxt.is_no_ev() &&
+		 (ctxt.is_cable_plugged() ||
+		  ctxt.is_cable_unplugged()) ]					jump(standby::StateA) {  }
+}
+
+StateE
+Entry {
+	start_ev_eval();
+	eval_ev();
+	eval_cable();
+	stop_modulation();
+}
+{
+	Eval[!ctxt.is_evse_available() &&
+		 !ctxt.is_ev_shortcut()]						StateF {}
+
+	Eval[ctxt.is_no_ev() &&
+		 (ctxt.is_cable_plugged() || ctxt.is_cable_unplugged()) &&
+		 !ctxt.is_ev_shortcut()]						jump(standby::StateA) {  }
+}
+
+StateF
+Entry {
+	start_ev_eval();
+	eval_ev();
+	eval_cable();
+	stop_modulation();
+}
+{
+	Eval[ctxt.is_ev_shortcut()]							jump(failure::StateE) { set_stop_cause(StopCause_ShortCut); }
+
+	Eval[ctxt.is_evse_available() &&
+		 ctxt.is_no_ev() &&
+		 (ctxt.is_cable_plugged() || ctxt.is_cable_unplugged()) ]		jump(standby::StateA) { }
+}
+
+Default
+{
+  // last chance before exception !
+	Eval												nil { eval_ev(); eval_cable(); }
+}
+%%

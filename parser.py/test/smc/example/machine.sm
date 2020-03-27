@@ -1,0 +1,256 @@
+%start NormalMap::Init
+%class WbStateMachine
+%header WbStateMachine.h
+%include AppliDefinition.h
+
+%map NormalMap
+%%
+Init
+Entry {
+	setStatus(WbStateMachine::wbInit);
+	evaluate();
+}
+{
+	Eval[ctxt.data->InChargeRead != WbStateMachine::wbNoCharge]						Restore {}
+
+	Eval[ctxt.do_autotest == true]													Test {}
+
+	Eval[ctxt._cpwState.get() == CpwState::idle]									Idle {}
+
+	Eval 																			nil {}
+}
+
+Restore
+{
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInNormalCharge]				Charge {disableHandshake();}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInPostponeCharge]				jump(FlsiMap::Handshake) {}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInForcedCharge]				jump(FlsiMap::Forced) {disableHandshake(); setForce(true);}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInLimitedCharge]				jump(FlsiMap::Limited) {disableHandshake();}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInSuspendedCharge]			Charge/push(SuspendMap::ByFlsi) {disableHandshake();}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInSuspendedChargeBP]			Charge/push(SuspendMap::ByUser) {disableHandshake();}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbInSuspendedChargeEM]			Idle {disableHandshake();}
+
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.data->InChargeRead == WbStateMachine::wbNoCharge]						Idle {}
+
+	Eval																			nil {}
+}
+
+Idle
+Entry {
+	reset();
+	setStatus(WbStateMachine::wbNoCharge);
+	setCpwReady(0);
+}
+{
+	Eval[ctxt.isEvConnected() &&
+		 ctxt.isLoadSheddingInputActive()]											jump(FlsiMap::Flsi) {}
+
+	Eval[ctxt.isEvConnected()]														Charge/push(SuspendMap::Suspend) {disableHandshake();}
+}
+
+Charge
+Entry {
+	setStatusForCharge();
+	setStatus(WbStateMachine::wbInNormalCharge);
+	setCpwReady(true);
+}
+{
+	// Standard: Suspend by FLSI
+	Eval[ctxt.isFLSIActive()]														jump(FlsiMap::Flsi) {}
+
+	// ELKO: suspend by ELKO OFF cmd
+	Eval[ctxt.elkoCmdOff()]															jump(FlsiMap::Flsi) {setForce(false);}
+
+	// Suspend by user on PB event
+	// (NOTE: for ELKO, disable this transition if ElkoCmd is OFF)
+	Eval[ctxt.isPushButtonPressed() &&
+		 (ctxt.isElko() == false || ctxt.elkoCmdOn())]								jump(SuspendMap::ByUser) {}
+
+}
+
+Test
+{
+	Eval[ctxt.do_test() == true]													Idle {}
+	
+	Eval																			Error {}
+}
+
+Error
+Entry {
+	setCpwReady(0);
+	setStatus(WbStateMachine::wbUnavailable);
+}
+{
+	Eval[ctxt.onError() == false]													Idle {}
+}
+
+Default
+{
+	Eval[ctxt.onError()]															Error {}
+	Eval[ctxt._cpwState.get() == CpwState::idle ]									Idle {}
+
+	// last chance to catch event
+	Default																			nil {}
+}
+%%
+
+%map FlsiMap
+%%
+Flsi
+Entry {
+	evaluate();
+}
+{
+	Eval[ctxt.isFLSIActive() &&
+		 ctxt.data->Conf.ConfigMode == LimitedPowerMode &&
+		 ctxt.isElko() == false]													Limited {}
+
+	Eval[(ctxt.isLoadSheddingInputActive()) &&
+		(ctxt.isForced() || ctxt.isPushButtonPressed())]							Forced {}
+
+	Eval[ctxt.isLoadSheddingInputActive() && ctxt.start_seq]						Handshake {}
+
+	Eval[ctxt.isLoadSheddingInputActive()]											push(SuspendMap::Suspend) {}
+
+	// WARNING: Do not add event without guard,
+	//			as we need to check Default condition
+}
+
+Limited
+Entry {
+	setStatus(WbStateMachine::wbInLimitedCharge);
+	setCpwReady(true);
+}
+{
+	// Suspend by user on PB event
+	// (NOTE: for ELKO, disable this transition if ElkoCmd is OFF)
+	Eval[ctxt.isPushButtonPressed() &&
+		 (ctxt.isElko() == false || ctxt.elkoCmdOn())]								jump(SuspendMap::ByUser) {}
+
+	NoSus[ctxt.isFLSIActive()]														nil {emptyStateStack();}
+
+	// WARNING: Do not add event without guard,
+	//			as we need to check Default condition
+}
+
+Handshake
+Entry {
+	startHandshakeTimer();
+	setStatus(WbStateMachine::wbInPostponeCharge);
+	setCpwReady(true);
+}
+{
+	// eval this first:
+	Eval[ctxt.onError()]															jump(NormalMap::Error) {}
+	Eval[ctxt._cpwState.get() == CpwState::idle ]									jump(NormalMap::Idle) {}
+
+	// handshake in progress
+	Eval[ctxt.isHandshakeEnd() == false && (ctxt.isLoadSheddingInputActive())]		nil {}
+
+	// WARNING: Do not add event without guard,
+	//			as we need to check Default condition
+}
+
+Forced
+Entry {
+	setForce(true);
+	setStatus(WbStateMachine::wbInForcedCharge);
+	setCpwReady(true);
+}
+{
+	// On User event
+	// -----------------
+	//	- ELKO product: back to 'Suspend by FLSI'
+	Eval[ ctxt.isElko() == true && ctxt.isPushButtonPressed() &&
+		  ctxt.isLoadSheddingEffective(true) ]										jump(SuspendMap::ByFlsi) { setForce(false);}
+		  
+	//  - Standard product: go to 'Suspend by user'
+	Eval[ctxt.isElko() == false && ctxt.isPushButtonPressed() ]						jump(SuspendMap::ByUser) {}
+
+	// all product
+	NoSus[ctxt.isLoadSheddingInputActive()]											nil {emptyStateStack();}
+
+	// WARNING: Do not add event without guard,
+	//			as we need to check Default condition
+}
+
+Default
+{
+	// check suspend cause
+	Eval 																			push(SuspendMap::Suspend) {}
+
+	// back to charge
+	NoSus																			jump(NormalMap::Charge) {emptyStateStack();}
+
+	// last chance to catch event
+	Default [ctxt.onError()]														jump(NormalMap::Error) {}
+	Default [ctxt._cpwState.get() == CpwState::idle ]								jump(NormalMap::Idle) {}
+	Default																			nil {}
+
+}
+%%
+
+%map SuspendMap
+%%
+Suspend
+Entry {
+	evaluate();
+}
+{
+
+	// Suspend by FLSI
+	Eval[ctxt.isLoadSheddingEffective()]											ByFlsi {setForce(false);}
+
+	// No default transition active
+	Default																			pop(NoSus) {}
+
+}
+
+ByFlsi
+Entry {
+	setStatus(WbStateMachine::wbInSuspendedCharge);
+	setCpwReady(0);
+	setStopCause(WbStateMachine::Stop_FLSI);
+}
+{
+	Eval[ctxt.isPushButtonPressed()]										 		jump(FlsiMap::Forced) {}
+	Eval[ctxt.isLoadSheddingEffective() == false]				 					jump(NormalMap::Charge) {}
+}
+
+ByUser
+Entry {
+	setStatus(WbStateMachine::wbInSuspendedChargeBP);
+	setCpwReady(0);
+	setStopCause(WbStateMachine::Stop_User);
+}
+{
+	Eval[ctxt.isPushButtonPressed()]												push(Suspend) {setForce(ctxt.forced);}
+}
+
+Default
+{
+	Eval[ctxt.onError()]															jump(NormalMap::Error) {emptyStateStack();}
+	Eval[ctxt._cpwState.get() == CpwState::idle ]									jump(NormalMap::Idle) {emptyStateStack();}
+
+	// back from Suspend state without suspension
+	NoSus[ctxt.isLoadSheddingInputActive()]											jump(FlsiMap::Flsi) {emptyStateStack();}
+	NoSus																			jump(NormalMap::Charge) {emptyStateStack();}
+
+	// last chance to catch event
+	Default 																		nil {}
+}
+%%

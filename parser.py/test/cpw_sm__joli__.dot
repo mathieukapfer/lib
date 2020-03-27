@@ -1,0 +1,213 @@
+digraph cpw {
+    compound=true;
+    bgcolor="#dddddd";
+
+    node
+        [shape=Mrecord width=1.5];
+
+    
+    subgraph cluster_standby {
+
+        label="standby";
+        bgcolor="#ffffff";
+
+        //
+        // States (Nodes)
+        //
+
+        
+        "standby::StateA"
+            [label="{StateA}" ];
+
+        "standby::StateB"
+            [label="{StateB}" ];
+
+        "standby::StateCDminus"
+            [label="{StateCDminus}" ];
+
+        "standby::StateB_checkWakeup"
+            [label="{StateB_checkWakeup}" ];
+
+        "standby::StateB_wakeup"
+            [label="{StateB_wakeup|Exit/\l}" ];
+
+        "standby::StateBplus"
+            [label="{StateBplus|Exit/\l}" ];
+
+        "standby::StateBplus_wakeup"
+            [label="{StateBplus_wakeup|Exit/\l}" ];
+
+        "%start"
+            [label="" shape=circle style=filled fillcolor=black width=0.25];
+
+
+    }
+
+    subgraph cluster_charge {
+
+        label="charge";
+        bgcolor="#ffffff";
+
+        //
+        // States (Nodes)
+        //
+
+        
+        "charge::StateCD"
+            [label="{StateCD}" ];
+
+        "charge::WaitingStop"
+            [label="{WaitingStop}" ];
+
+        "charge::OpenContactor"
+            [label="{OpenContactor}" ];
+
+        "charge::Error_CT"
+            [label="{Error_CT}" ];
+
+
+    }
+
+    subgraph cluster_failure {
+
+        label="failure";
+        bgcolor="#ffffff";
+
+        //
+        // States (Nodes)
+        //
+
+        
+        "failure::StateError"
+            [label="{StateError}" ];
+
+        "failure::StateE"
+            [label="{StateE}" ];
+
+        "failure::StateF"
+            [label="{StateF}" ];
+
+
+    }
+
+
+    //
+    // Transitions (Edges)
+    //
+
+   
+    "standby::StateA" -> "standby::StateCDminus"
+        [label="Eval" color="#4444aa" ];
+
+    "standby::StateA" -> "standby::StateB"
+        [label="Eval" color="#2222aa" ];
+
+    "standby::StateB" -> "standby::StateA"
+        [label="Eval" color="#22aa22" ];
+
+    "standby::StateB" -> "standby::StateCDminus"
+        [label="Eval" ];
+
+    "standby::StateB" -> "standby::StateB_checkWakeup"
+        [label="Eval" color="#2222aa" ];
+
+    "standby::StateB" -> "failure::StateError"
+        [label="Eval" ];
+
+    "standby::StateCDminus" -> "standby::StateA"
+        [label="Eval" ];
+
+    "standby::StateCDminus" -> "standby::StateB"
+        [label="Eval" ];
+
+    "standby::StateCDminus" -> "standby::StateB_checkWakeup"
+        [label="Eval" color="#4444aa" ];
+
+    "standby::StateCDminus" -> "failure::StateError"
+        [label="Eval" ];
+
+    "standby::StateB_checkWakeup" -> "standby::StateB_wakeup"
+        [label="Eval" ];
+
+    "standby::StateB_checkWakeup" -> "standby::StateBplus"
+        [label="Eval" color="#2222aa" ];
+
+    "standby::StateB_wakeup" -> "standby::StateBplus"
+        [label="TimerEvent" ];
+
+    "standby::StateBplus" -> "standby::StateB"
+        [label="Eval" color="#22aa22" ];
+
+    "standby::StateBplus" -> "charge::StateCD"
+        [label="Eval" color="#2222aa" ];
+
+    "standby::StateBplus" -> "failure::StateError"
+        [label="Eval" ];
+
+    "standby::StateBplus" -> "standby::StateBplus_wakeup"
+        [label="TimerEvent" color="#2222aa" ];
+
+    "standby::StateBplus" -> "failure::StateE"
+        [label="Eval" ltail=cluster_standby color="#aa2222" ];
+
+    "standby::StateBplus" -> "failure::StateF"
+        [label="Eval" ltail=cluster_standby color="#666666"];
+
+    "standby::StateBplus" -> "failure::StateError"
+        [label="Eval" ltail=cluster_standby];
+
+    "standby::StateBplus_wakeup" -> "standby::StateB"
+        [label="Eval" ];
+
+    "standby::StateBplus_wakeup" -> "standby::StateBplus"
+        [label="Eval" color="#2222aa" ];
+
+    "%start" -> "standby::StateA"
+
+    "charge::StateCD" -> "charge::OpenContactor"
+        [label="Eval" ];
+
+    "charge::StateCD" -> "charge::WaitingStop"
+        [label="Eval" color="#22aa22" ];
+
+    "charge::WaitingStop" -> "charge::OpenContactor"
+        [label="Eval" color="#22aa22" ];
+
+    "charge::OpenContactor" -> "failure::StateF"
+        [label="Eval" color="#666666"];
+
+    "charge::OpenContactor" -> "failure::StateE"
+        [label="Eval" color="#aa2222" weight=10 ];
+
+    "charge::OpenContactor" -> "failure::StateError"
+        [label="Eval" ];
+
+    "charge::OpenContactor" -> "standby::StateBplus"
+        [label="Eval" color="#22aa22"];
+
+    "charge::OpenContactor" -> "charge::Error_CT"
+        [label="TimerEvent" ];
+
+    "charge::Error_CT" -> "charge::OpenContactor"
+        [label="Eval" ];
+
+    "failure::StateError" -> "failure::StateF"
+        [label="Eval" color="#666666"];
+
+    "failure::StateError" -> "standby::StateA"
+        [label="Eval" ];
+
+    "failure::StateE" -> "failure::StateF"
+        [label="Eval" color="#666666"];
+
+    "failure::StateE" -> "standby::StateA"
+        [label="Eval" ];
+
+    "failure::StateF" -> "failure::StateE"
+        [label="Eval" color="#aa2222" ];
+
+    "failure::StateF" -> "standby::StateA"
+        [label="Eval" ];
+
+
+}

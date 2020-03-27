@@ -1,0 +1,216 @@
+digraph cpw {
+    compound=true;
+    bgcolor="#dddddd";
+
+    node
+        [shape=Mrecord width=1.5];
+
+    
+    subgraph cluster_standby {
+
+        label="standby";
+        bgcolor="#ffffff";
+
+        //
+        // States (Nodes)
+        //
+
+        
+        "standby::StateA"
+            [label="{StateA|Entry/\l|Eval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "standby::StateB"
+            [label="{StateB|Entry/\l|Eval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "standby::StateCDminus"
+            [label="{StateCDminus|Entry/\l|Eval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "standby::StateB_checkWakeup"
+            [label="{StateB_checkWakeup|Eval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "standby::StateB_wakeup"
+            [label="{StateB_wakeup|Entry/\l|Exit/\l|Eval/\lEval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "standby::StateBplus"
+            [label="{StateBplus|Entry/\l|Exit/\l|Eval/\lEval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "standby::StateBplus_wakeup"
+            [label="{StateBplus_wakeup|Entry/\l|Exit/\l|Eval/\lEval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "%start"
+            [label="" shape=circle style=filled fillcolor=black width=0.25];
+
+
+    }
+
+    subgraph cluster_charge {
+
+        label="charge";
+        bgcolor="#ffffff";
+
+        //
+        // States (Nodes)
+        //
+
+        
+        "charge::StateCD"
+            [label="{StateCD|Entry/\l|Exit/\l|Eval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "charge::WaitingStop"
+            [label="{WaitingStop|Entry/\l|Exit/\l|Eval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "charge::OpenContactor"
+            [label="{OpenContactor|Entry/\l|Exit/\l|Eval/\lEval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+        "charge::Error_CT"
+            [label="{Error_CT|Eval/\lEval/\l\lTimerEvent(timerId: TimerId)/\l}" ];
+
+
+    }
+
+    subgraph cluster_failure {
+
+        label="failure";
+        bgcolor="#ffffff";
+
+        //
+        // States (Nodes)
+        //
+
+        
+        "failure::StateError"
+            [label="{StateError|Entry/\l|Eval/\l}" ];
+
+        "failure::StateE"
+            [label="{StateE|Entry/\l|Eval/\l}" ];
+
+        "failure::StateF"
+            [label="{StateF|Entry/\l|Eval/\l}" ];
+
+
+    }
+
+
+    //
+    // Transitions (Edges)
+    //
+
+    
+    "standby::StateA" -> "standby::"
+        [label="Eval/\l" ];
+
+    "standby::StateA" -> "standby::StateCDminus"
+        [label="Eval/\l" color="#4444aa" weight=3];
+
+    "standby::StateA" -> "standby::StateB"
+        [label="Eval/\l" color="#2222aa" weight=3];
+
+    "standby::StateB" -> "standby::StateA"
+        [label="Eval/\l" color="#22aa22" weight=3];
+
+    "standby::StateB" -> "standby::StateCDminus"
+        [label="Eval/\l" ];
+
+    "standby::StateB" -> "standby::StateB_checkWakeup"
+        [label="Eval/\l" color="#2222aa" weight=3];
+
+    "standby::StateB" -> "failure::StateError"
+        [label="Eval/\l" ];
+
+    "standby::StateCDminus" -> "standby::StateA"
+        [label="Eval/\l" ];
+
+    "standby::StateCDminus" -> "standby::StateB"
+        [label="Eval/\l" ];
+
+    "standby::StateCDminus" -> "standby::StateB_checkWakeup"
+        [label="Eval/\l" color="#4444aa" weight=3];
+
+    "standby::StateCDminus" -> "failure::StateError"
+        [label="Eval/\l" ];
+
+    "standby::StateB_checkWakeup" -> "standby::StateB_wakeup"
+        [label="Eval/\l" ];
+
+    "standby::StateB_checkWakeup" -> "standby::StateBplus"
+        [label="Eval/\l" color="#2222aa" weight=3];
+
+    "standby::StateB_wakeup" -> "standby::StateBplus"
+        [label="TimerEvent(timerId: TimerId)/\l" ];
+
+    "standby::StateBplus" -> "standby::StateB"
+        [label="Eval/\l" color="#22aa22" weight=3];
+
+    "standby::StateBplus" -> "charge::StateCD"
+        [label="Eval/\l" color="#2222aa" weight=3];
+
+    "standby::StateBplus" -> "failure::StateError"
+        [label="Eval/\l" ];
+
+    "standby::StateBplus" -> "standby::StateBplus_wakeup"
+        [label="TimerEvent(timerId: TimerId)/\l" color="#2222aa" weight=3];
+
+    "standby::StateBplus" -> "failure::StateE"
+        [label="Eval/\l" ltail=cluster_standby color="#aa2222" weight=3];
+
+    "standby::StateBplus" -> "failure::StateF"
+        [label="Eval/\l" ltail=cluster_standby color="#666666"];
+
+    "standby::StateBplus" -> "failure::StateError"
+        [label="Eval/\l" ltail=cluster_standby];
+
+    "standby::StateBplus_wakeup" -> "standby::StateB"
+        [label="Eval/\l" ];
+
+    "standby::StateBplus_wakeup" -> "standby::StateBplus"
+        [label="Eval/\l" color="#2222aa" weight=3];
+
+    "%start" -> "standby::StateA"
+
+    "charge::StateCD" -> "charge::OpenContactor"
+        [label="Eval/\l" ];
+
+    "charge::StateCD" -> "charge::WaitingStop"
+        [label="Eval/\l" color="#22aa22" weight=3];
+
+    "charge::WaitingStop" -> "charge::OpenContactor"
+        [label="Eval/\l" color="#22aa22" weight=3];
+
+    "charge::OpenContactor" -> "failure::StateF"
+        [label="Eval/\l" color="#666666"];
+
+    "charge::OpenContactor" -> "failure::StateE"
+        [label="Eval/\l" color="#aa2222" weight=3];
+
+    "charge::OpenContactor" -> "failure::StateError"
+        [label="Eval/\l" ];
+
+    "charge::OpenContactor" -> "standby::StateBplus"
+        [label="Eval/\l" color="#22aa22" weight=3];
+
+    "charge::OpenContactor" -> "charge::Error_CT"
+        [label="TimerEvent(timerId: TimerId)/\l" ];
+
+    "charge::Error_CT" -> "charge::OpenContactor"
+        [label="Eval/\l" ];
+
+    "failure::StateError" -> "failure::StateF"
+        [label="Eval/\l" color="#666666"];
+
+    "failure::StateError" -> "standby::StateA"
+        [label="Eval/\l" ];
+
+    "failure::StateE" -> "failure::StateF"
+        [label="Eval/\l" color="#666666"];
+
+    "failure::StateE" -> "standby::StateA"
+        [label="Eval/\l" ];
+
+    "failure::StateF" -> "failure::StateE"
+        [label="Eval/\l" color="#aa2222" weight=3];
+
+    "failure::StateF" -> "standby::StateA"
+        [label="Eval/\l" ];
+
+
+}

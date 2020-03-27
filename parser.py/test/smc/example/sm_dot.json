@@ -1,0 +1,46 @@
+{
+	"remove": [
+		"NormalMap::Restore",
+		"NormalMap::Test"
+	],
+	"color": [
+		{
+			"color": "#ffc000",
+			"fromState": "NormalMap::Charge"
+		},
+		{
+			"color": "#22dd22",
+			"toState": "NormalMap::Charge"
+		},
+		{
+			"color": "red",
+			"fromState": "SuspendMap::Suspend",
+			"toState": "NormalMap::Idle"
+		},
+		{
+			"color": "blue",
+			"fromState": "SuspendMap::Suspend",
+			"toState": "SuspendMap::Suspend"
+		}
+	],
+	"weight": [
+		{
+			"weight": 1,
+			"fromState": "NormalMap::Charge"
+		},
+		{
+			"weight": 1,
+			"toState": "NormalMap::Charge"
+		},
+		{
+			"weight": 5,
+			"fromState": "FlsiMap::Forced",
+			"toState": "SuspendMap::ByUser"
+		},
+		{
+			"weight": 10,
+			"fromState":"SuspendMap::Suspend",
+			"toState": "NormalMap::Idle"
+		}
+	]
+}
