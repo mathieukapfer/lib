@@ -6,6 +6,8 @@ def help():
     print("*** Sm2Dot converter ***")
     print("************************")
     print()
+    print("Python 3 script")
+    print()
     print("Converts a given .sm file into a .dot file")
     print()
     print("Arguments (order is irrelevant) :")
@@ -283,7 +285,7 @@ def check_integrity():
     for map in MODEL.Maps:
         for node in map.Nodes:
             for i in range(len(node.Transitions)-1, -1, -1):
-                if node.Transitions[i].Name.VALUE == "nil":
+                if node.Transitions[i].Name == "nil":
                     node.Transitions.pop(i)
     # Fill node dictionary
     for map in MODEL.Maps:
@@ -334,7 +336,7 @@ def export_map(map):
     return result
 
 def export_node(node):
-    if node.Name.VALUE == "Default":
+    if node.Name == "Default":
         return None # Skip default node
 
     ### Build label
@@ -359,13 +361,13 @@ def export_transitions():
 
     for map in MODEL.Maps:
         for node in map.Nodes:
-            if node.Name.VALUE != "Default": # Skip default node
+            if node.Name != "Default": # Skip default node
                 for transition in node.Transitions:
                     if transition not in transition_set:
                         transition_set.add(transition)
                         ### Build label
                         label = ""
-                        has_eval = transition.Signature == "Eval" 
+                        has_eval = transition.Signature == "Eval"
                         has_timer = not has_eval
                         # Allows to display both 'Eval' and 'TimerEvent'
                         for t in node.Transitions:
@@ -384,6 +386,10 @@ def export_transitions():
                         option = get_json_option(transition)
                         color = '' if option.Color == None else ' color="%s"' % option.Color
                         weight = '' if option.Weight == None else ' weight="%s"' % option.Weight
+
+                        ### Tail / Head
+                        if transition.Map != map.Name:
+                            pass
 
                         result += '\n'
                         result += '\n"%s::%s" -> "%s::%s"' % (node.Parent.Name, node.Name, transition.Map, transition.Name)
