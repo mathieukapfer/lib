@@ -365,35 +365,40 @@ def export_transitions():
                 for transition in node.Transitions:
                     if transition not in transition_set:
                         transition_set.add(transition)
-                        ### Build label
-                        label = ""
-                        has_eval = transition.Signature == "Eval"
-                        has_timer = not has_eval
-                        # Allows to display both 'Eval' and 'TimerEvent'
-                        for t in node.Transitions:
-                            if t != transition and t.Name == transition.Name:
-                                transition_set.add(t)
-                                if has_eval == False:
-                                    has_eval = t.Signature == "Eval"
-                                elif has_timer == False:
-                                    has_timer = t.Signature != "Eval"
-                        if has_eval:
-                            label += "Eval"
-                        if has_timer:
-                            label += "\lTimerEvent"
 
-                        ### Color / Weight
                         option = get_json_option(transition)
                         color = '' if option.Color == None else ' color="%s"' % option.Color
-                        weight = '' if option.Weight == None else ' weight="%s"' % option.Weight
-
-                        ### Tail / Head
-                        if transition.Map != map.Name:
-                            pass
+                        weight = ''
+                        label = ''
+                        tail = ''
+                        head = ''
+                        if map.Name != transition.Map:
+                            tail = 'ltail=%s' % "cluster_%s" % map.Name
+                            head = ' lhead=%s' % "cluster_%s" % transition.Map
+                        else:
+                            weight = '' if option.Weight == None else ' weight="%s"' % option.Weight
+                            ### Build label
+                            has_eval = transition.Signature == "Eval"
+                            has_timer = not has_eval
+                            # Allows to display both 'Eval' and 'TimerEvent'
+                            for t in node.Transitions:
+                                if t != transition and t.Name == transition.Name:
+                                    transition_set.add(t)
+                                    if has_eval == False:
+                                        has_eval = t.Signature == "Eval"
+                                    elif has_timer == False:
+                                        has_timer = t.Signature != "Eval"
+                            if has_eval == True and has_timer == True:
+                                label = "Eval\lTimerEvent"
+                            elif has_eval == True:
+                                label = "Eval"
+                            else:
+                                label = "TimerEvent"
+                            label = 'label="%s"'% label
 
                         result += '\n'
                         result += '\n"%s::%s" -> "%s::%s"' % (node.Parent.Name, node.Name, transition.Map, transition.Name)
-                        result += '\n    [label="%s"%s%s];' % (label, color, weight)
+                        result += '\n    [%s%s%s%s%s];' % (label, tail, head, color, weight)
 
     return result
 
