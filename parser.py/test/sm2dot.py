@@ -357,11 +357,12 @@ def export_transitions():
     result += '\n'
     result += '\n"%%start" -> "%s::%s"' % (MODEL.StartMap, MODEL.StartName)
 
-    transition_set = set() # Set of 'Transitions" objects
 
     for map in MODEL.Maps:
+        cluster_out_done = set() # Set of <map> string
         for node in map.Nodes:
             if node.Name != "Default": # Skip default node
+                transition_set = set() # Set of 'Transitions" objects
                 for transition in node.Transitions:
                     if transition not in transition_set:
                         transition_set.add(transition)
@@ -373,6 +374,9 @@ def export_transitions():
                         tail = ''
                         head = ''
                         if map.Name != transition.Map:
+                            if transition.Map.VALUE in cluster_out_done:
+                                continue
+                            cluster_out_done.add(transition.Map.VALUE)
                             tail = 'ltail=%s' % "cluster_%s" % map.Name
                             head = ' lhead=%s' % "cluster_%s" % transition.Map
                         else:
