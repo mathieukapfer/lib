@@ -135,7 +135,7 @@ def node_root(file_content):
     blank_comments(file_content, "//", '{', '}')
     iterator = Iterator(file_content)
     while iterator.has_remaining() == True:
-        
+
         # Ex : %start standby::StateA
         regex_start = "%start" + _Space + TOKEN_Node
         result = parse(regex_start, node_start)
@@ -143,13 +143,13 @@ def node_root(file_content):
             continue
 
         # Ex : %class CpwStateMachine
-        regex_class = "%class" + _Space + TOKEN_Name 
+        regex_class = "%class" + _Space + TOKEN_Name
         result = parse(regex_class, node_class)
         if result != None:
             continue
 
         # Ex : %header CpwStateMachine.h
-        regex_header = "%header" + _Space + TOKEN_File 
+        regex_header = "%header" + _Space + TOKEN_File
         result = parse(regex_header, node_header)
         if result != None:
             continue
@@ -197,7 +197,7 @@ def node_map(map_name, map_content):
         result = parse(regex_node, node_node)
         if result == None:
             raise ParsingException("Malformed expression, expected <name> ['Entry' '{' ... '}'] ['Exit' '{' ... '}'] '{' ... '}'")
-            
+
         # Find content of braces { } manually
         # Regexes can't help here since inner braces { } are present
         result = parse_between('{', '}', node_transitions)
@@ -213,11 +213,11 @@ def node_transitions(transitions_content):
     blank_comments(transitions_content, "//", '{', '}')
     iterator = Iterator(transitions_content)
     while iterator.has_remaining() == True:
-        
+
         # Ex : Eval
         # Ex : Eval [ ... ]
-        # Ex : TimerEvent(...) 
-        # Ex : TimerEvent(...) [ ... ] 
+        # Ex : TimerEvent(...)
+        # Ex : TimerEvent(...) [ ... ]
         regex_transition_part1 = "(Eval|TimerEvent" + _opt_Space + "(?:\(" + _opt_Anything + "\)))" \
                                + _opt_Space + "(?:\[" + TOKEN_opt_Anything + "\])?"                 \
 
@@ -277,7 +277,7 @@ def check_integrity():
     # Set start node at first position
     map.Nodes.remove(node)
     map.Nodes.insert(0, node)
-    
+
     ### Transitions
     # Remove 'nil' transitions
     for map in MODEL.Maps:
@@ -324,17 +324,17 @@ def export_map(map):
     result += '\n    //'
     result += '\n'
     result += '\n' + indent(to_string([export_node(node) for node in map.Nodes], 2))
-    
+
     if map.Name == MODEL.StartMap:
         result += '\n'
         result += '\n    "%start"'
         result += '\n        [label="" shape=circle style=filled fillcolor=black width=0.25];'
-    
+
     result += '\n}'
     return result
 
 def export_node(node):
-    if node.Name == "Default":
+    if node.Name.VALUE == "Default":
         return None # Skip default node
 
     ### Build label
@@ -356,7 +356,7 @@ def export_transitions():
     result += '\n"%%start" -> "%s::%s"' % (MODEL.StartMap, MODEL.StartName)
     for map in MODEL.Maps:
         for node in map.Nodes:
-            if node.Name != "Default": # Skip default node
+            if node.Name.VALUE != "Default": # Skip default node
                 for transition in node.Transitions:
                     ### Build label
                     has_eval = transition.Signature == "Eval"
@@ -380,7 +380,7 @@ def export_transitions():
 
                     result += '\n'
                     result += '\n"%s::%s" -> "%s::%s"' % (node.Parent.Name, node.Name, transition.Map, transition.Name)
-                    result += '\n    [label="%s"%s%s];' % (label, color, weight) 
+                    result += '\n    [label="%s"%s%s];' % (label, color, weight)
 
     return result
 
@@ -415,11 +415,11 @@ def load_json(filepath):
     if "color" in JSON:
         for color in JSON["color"]:
             if "color" in color:
-                from_state = None if "fromState" not in color else color["fromState"] 
-                to_state = None if "toState" not in color else color["toState"] 
+                from_state = None if "fromState" not in color else color["fromState"]
+                to_state = None if "toState" not in color else color["toState"]
                 ### Feed dictionaries
                 if from_state != None and to_state != None:
-                    ensure_exist(BOTH_DICTIONARY, "%s::%s" % (from_state, to_state)).Color = color["color"] 
+                    ensure_exist(BOTH_DICTIONARY, "%s::%s" % (from_state, to_state)).Color = color["color"]
                 elif from_state != None:
                     ensure_exist(FROM_DICTIONARY, from_state).Color = color["color"]
                 elif to_state != None:
@@ -429,11 +429,11 @@ def load_json(filepath):
     if "weight" in JSON:
         for weight in JSON["weight"]:
             if "weight" in weight:
-                from_state = None if "fromState" not in weight else weight["fromState"] 
-                to_state = None if "toState" not in weight else weight["toState"] 
+                from_state = None if "fromState" not in weight else weight["fromState"]
+                to_state = None if "toState" not in weight else weight["toState"]
                 ### Feed dictionaries
                 if from_state != None and to_state != None:
-                    ensure_exist(BOTH_DICTIONARY, "%s::%s" % (from_state, to_state)).Weight = weight["weight"] 
+                    ensure_exist(BOTH_DICTIONARY, "%s::%s" % (from_state, to_state)).Weight = weight["weight"]
                 elif from_state != None:
                     ensure_exist(FROM_DICTIONARY, from_state).Weight= weight["weight"]
                 elif to_state != None:
@@ -444,7 +444,7 @@ def get_json_option(transition):
     key = "%s::%s::%s::%s" % (transition.Parent.Parent.Name, transition.Parent.Name, transition.Map, transition.Name)
     options = BOTH_DICTIONARY.get(key, None)
     if options != None:
-        return options # Option 'both' 
+        return options # Option 'both'
     key = "%s::%s" % (transition.Parent.Parent.Name, transition.Parent.Name)
     options = FROM_DICTIONARY.get(key, None)
     if options != None:
