@@ -283,7 +283,7 @@ def check_integrity():
     for map in MODEL.Maps:
         for node in map.Nodes:
             for i in range(len(node.Transitions)-1, -1, -1):
-                if node.Transitions[i].Name == "nil":
+                if node.Transitions[i].Name.VALUE == "nil":
                     node.Transitions.pop(i)
     # Fill node dictionary
     for map in MODEL.Maps:
@@ -354,33 +354,40 @@ def export_transitions():
     result += '\n//'
     result += '\n'
     result += '\n"%%start" -> "%s::%s"' % (MODEL.StartMap, MODEL.StartName)
+
+    transition_set = set() # Set of 'Transitions" objects
+
     for map in MODEL.Maps:
         for node in map.Nodes:
             if node.Name.VALUE != "Default": # Skip default node
                 for transition in node.Transitions:
-                    ### Build label
-                    has_eval = transition.Signature == "Eval"
-                    label = "Eval" if has_eval else "TimerEvent"
-                    # Allows to display both 'Eval' and 'TimerEvent'
-                    for t in node.Transitions:
-                        if t != transition and t.Name == transition.Name:
-                            if has_eval == True:
-                                if t.Signature != "Eval":
-                                    label += "\lTimerEvent"
-                                    break
-                            else:
-                                if t.Signature == "Eval":
-                                    label += "\lEval"
-                                    break
+                    if transition not in transition_set:
+                        transition_set.add(transition)
+                        ### Build label
+                        label = ""
+                        has_eval = transition.Signature == "Eval" 
+                        has_timer = not has_eval
+                        # Allows to display both 'Eval' and 'TimerEvent'
+                        for t in node.Transitions:
+                            if t != transition and t.Name == transition.Name:
+                                transition_set.add(t)
+                                if has_eval == False:
+                                    has_eval = t.Signature == "Eval"
+                                elif has_timer == False:
+                                    has_timer = t.Signature != "Eval"
+                        if has_eval:
+                            label += "Eval"
+                        if has_timer:
+                            label += "\lTimerEvent"
 
-                    ### Color / Weight
-                    option = get_json_option(transition)
-                    color = '' if option.Color == None else ' color="%s"' % option.Color
-                    weight = '' if option.Weight == None else ' weight="%s"' % option.Weight
+                        ### Color / Weight
+                        option = get_json_option(transition)
+                        color = '' if option.Color == None else ' color="%s"' % option.Color
+                        weight = '' if option.Weight == None else ' weight="%s"' % option.Weight
 
-                    result += '\n'
-                    result += '\n"%s::%s" -> "%s::%s"' % (node.Parent.Name, node.Name, transition.Map, transition.Name)
-                    result += '\n    [label="%s"%s%s];' % (label, color, weight)
+                        result += '\n'
+                        result += '\n"%s::%s" -> "%s::%s"' % (node.Parent.Name, node.Name, transition.Map, transition.Name)
+                        result += '\n    [label="%s"%s%s];' % (label, color, weight)
 
     return result
 
