@@ -342,16 +342,24 @@ def export_node(node):
     full_name = '%s::%s' % (node.Parent.Name, node.Name)
     ### Build label
     label = str(node.Name)
-    if node.Entry != None:
-        label += "|Entry"
-    if node.Exit != None:
-        label += "|Exit"
+    #if node.Entry != None:
+    #    label += "|Entry"
+    #if node.Exit != None:
+    #    label += "|Exit"
 
     result = '"%s"' % full_name
     if node.Name != "Default":
         result += '\n    [label="{%s}"];' % label
     else:
-        result += '\n    [label="Default" shape=diamond]; { rank = source; "%s" }' % full_name
+        internal = False
+        for transition in node.Transitions:
+            if node.Parent.Name == transition.Map:
+                internal = True
+                break
+        if internal == False: 
+            result += '\n    [shape=point style=invis];'
+        else:
+            result += '\n    [label="Default" shape=diamond]; { rank = source; "%s" }' % full_name
     return result
 
 def export_transitions():
