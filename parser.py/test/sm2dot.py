@@ -6,8 +6,6 @@ def help():
     print("*** Sm2Dot converter ***")
     print("************************")
     print()
-    print("Python 3 script")
-    print()
     print("Converts a given .sm file into a .dot file")
     print()
     print("Arguments (order is irrelevant) :")
