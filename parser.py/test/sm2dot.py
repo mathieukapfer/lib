@@ -334,18 +334,30 @@ def export_map(map):
     return result
 
 def export_node(node):
-    if node.Name.VALUE == "Default":
-        return None # Skip default node
+    if node.Name == "Default" and len(node.Transitions) == 0:
+        return None
 
+    full_name = '%s::%s' % (node.Parent.Name, node.Name)
     ### Build label
     label = str(node.Name)
-    if node.Entry != None:
-        label += "|Entry"
-    if node.Exit != None:
-        label += "|Exit"
+    #if node.Entry != None:
+    #    label += "|Entry"
+    #if node.Exit != None:
+    #    label += "|Exit"
 
-    result =    '"%s::%s"' % (node.Parent.Name, node.Name)
-    result += '\n    [label="{%s}"];' % label
+    result = '"%s"' % full_name
+    if node.Name != "Default":
+        result += '\n    [label="{%s}"];' % label
+    else:
+        internal = False
+        for transition in node.Transitions:
+            if node.Parent.Name == transition.Map:
+                internal = True
+                break
+        if internal == False: 
+            result += '\n    [shape=point style=invis];'
+        else:
+            result += '\n    [label="Default" shape=diamond]; { rank = source; "%s" }' % full_name
     return result
 
 def export_transitions():
@@ -354,33 +366,47 @@ def export_transitions():
     result += '\n//'
     result += '\n'
     result += '\n"%%start" -> "%s::%s"' % (MODEL.StartMap, MODEL.StartName)
+
     for map in MODEL.Maps:
         for node in map.Nodes:
-            if node.Name.VALUE != "Default": # Skip default node
-                for transition in node.Transitions:
-                    ### Build label
-                    has_eval = transition.Signature == "Eval"
-                    label = "Eval" if has_eval else "TimerEvent"
-                    # Allows to display both 'Eval' and 'TimerEvent'
-                    for t in node.Transitions:
-                        if t != transition and t.Name == transition.Name:
-                            if has_eval == True:
-                                if t.Signature != "Eval":
-                                    label += "\lTimerEvent"
-                                    break
-                            else:
-                                if t.Signature == "Eval":
-                                    label += "\lEval"
-                                    break
+            transition_set = set() # Set of 'Transitions" objects
+            for transition in node.Transitions:
+                if transition not in transition_set:
+                    ### Tail / Head
+                    tail = ''
+                    head = ''
+                    if node.Name == "Default" and map.Name != transition.Map:
+                        tail = ' ltail=%s' % "cluster_%s" % map.Name
+                        #head = ' lhead=%s' % "cluster_%s" % transition.Map
 
-                    ### Color / Weight
+                    ### Color / Head
                     option = get_json_option(transition)
                     color = '' if option.Color == None else ' color="%s"' % option.Color
                     weight = '' if option.Weight == None else ' weight="%s"' % option.Weight
 
+                    ### Build label
+                    has_eval = transition.Signature == "Eval"
+                    has_timer = not has_eval
+                    # Allows to display both 'Eval' and 'TimerEvent'
+                    transition_set.add(transition)
+                    for t in node.Transitions:
+                        if t != transition and t.Name == transition.Name:
+                            transition_set.add(t)
+                            if has_eval == False:
+                                has_eval = t.Signature == "Eval"
+                            elif has_timer == False:
+                                has_timer = t.Signature != "Eval"
+                    if has_eval == True and has_timer == True:
+                        label = "Eval\lTimerEvent"
+                    elif has_eval == True:
+                        label = "Eval"
+                    else:
+                        label = "TimerEvent"
+                    label = 'label="%s"'% label
+
                     result += '\n'
                     result += '\n"%s::%s" -> "%s::%s"' % (node.Parent.Name, node.Name, transition.Map, transition.Name)
-                    result += '\n    [label="%s"%s%s];' % (label, color, weight)
+                    result += '\n    [%s%s%s%s%s];' % (label, tail, head, color, weight)
 
     return result
 

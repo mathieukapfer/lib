@@ -73,6 +73,11 @@ class Argument:
             return self.VALUE == None
         return self.VALUE == str(other)
 
+    def __ne__(self, other):
+        if other == None:
+            return self.VALUE != None
+        return self.VALUE != str(other)
+
 class Iterator:
     def __init__(self, argument):
         ITERATORS[-1] = self
@@ -81,7 +86,7 @@ class Iterator:
 
     def has_remaining(self):
         return self.INDEX < len(self.ARG)
-    
+
     def __len__(self):
         return len(self.ARG)
 
@@ -111,11 +116,11 @@ def get_regex_engine(regex):
 ### Attempts to call the given function with the given matched patterns
 def bind_patterns(function, result_regex):
     spec = inspect.getargspec(function)
-    # Check matched patterns and function signature 
+    # Check matched patterns and function signature
     if len(spec.args) != len(result_regex.groups()):
         raise Exception("\nNumber of matched arguments doesn't correspond to arguments of function : \n\t%s\n\t%s\nRegex result :\n\t%s\n\t%s" \
             % (function, spec, result_regex, result_regex.groups()))
-    
+
     # Conctruct Argument object based on matched patterns
     arguments = []
     i = 1
@@ -139,7 +144,7 @@ def bind_patterns(function, result_regex):
 def parse(regex, function = None):
     iterator = ITERATORS[-1]
     ### Check regex
-    regex_engine = get_regex_engine(regex)  
+    regex_engine = get_regex_engine(regex)
     result_regex = regex_engine.match(iterator.ARG.VALUE, iterator.INDEX)
     if result_regex == None:
         return None
@@ -159,7 +164,7 @@ def parse(regex, function = None):
     return result_regex
 
 ### Resolves the content between the given open/close tokens, and potentially calls the given function with the content
-def parse_between(opening_token, closing_token, function = None):    
+def parse_between(opening_token, closing_token, function = None):
     iterator = ITERATORS[-1]
     offset = 0
     idx = iterator.INDEX
@@ -211,7 +216,7 @@ def parse_between(opening_token, closing_token, function = None):
             idx -= offset # Important for reevaluation
             offset = 0
         idx += 1 # Next char
-    
+
     raise ParsingException("Expected closing token %s" % closing_token, body_index, True)
 
 ###
@@ -259,20 +264,20 @@ def blank_comments(argument, comment_token = "//", opening_token = None, closing
                     idx -= offset1 # Important for reevaluation
                     offset1 = 0
                 elif offset2 > 0:
-                    idx -= offset2 # Important for reevaluation 
+                    idx -= offset2 # Important for reevaluation
                     offset1 = 0
                 elif counter == 0 and char == comment_token[offset3]:
                     offset3 += 1
                     if offset3 == len(comment_token):
                         dump = True
-                        dump_index = idx - offset3 + 1 
+                        dump_index = idx - offset3 + 1
                         offset3 = 0
             else:
                 if char == comment_token[offset3]:
                     offset3 += 1
                     if offset3 == len(comment_token):
                         dump = True
-                        dump_index = idx - offset3 + 1 
+                        dump_index = idx - offset3 + 1
                         offset3 = 0
                 else:
                     idx -= offset1 # Important for reevaluation
@@ -311,7 +316,7 @@ def to_string(list, eol = 1):
     result = ""
     for item in list:
         if item != None:
-            result += str(item) + "\n" * eol 
+            result += str(item) + "\n" * eol
     return result[:-eol]
 
 ### Indents the given string
